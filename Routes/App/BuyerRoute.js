@@ -22,8 +22,8 @@ BuyerRoute.post("/create-buyer", async (req, res) => {
     await CurrentBuyerData.save();
     //sending confirmation mail
     console.log("Sending Confirmation email")
-    sendEmail(decodedToken.email,"Buyer Account created", 
-    `Hellow ${decodedToken.username}, tour buyer account has been successfully created. You may now checkout and order products from our app`)
+    sendEmail(decodedToken.email, "Buyer Account created",
+      `Hellow ${decodedToken.username}, tour buyer account has been successfully created. You may now checkout and order products from our app`)
     res.json({
       message: "OK",
     });
@@ -107,22 +107,46 @@ BuyerRoute.post("/delete-buyer", async (req, res) => {
   }
 });
 
-//api for getting specidif product
-BuyerRoute.get('/fetch-product/:productID',async (req,res)=>{
-  const productData = await ProductModel.findOne({
-    _id : req.params.productID
-  })
-  if(productData)
-  {
+//api to fetch products to display on buyer home page
+BuyerRoute.get('/fetch-products-all', async (req, res) => {
+  try {
+    const Products = await ProductModel.find().sort({ _id: -1 });
+    if (!Products)
+      res.json({
+        message: "No products found"
+      })
+
+    else {
+      res.json({
+        message: "OK",
+        Products: Products
+      })
+    }
+  }
+
+  catch (error) {
     res.json({
-      message : "OK",
-      productData : productData
+      message: "error",
+      error: error
+    })
+  }
+})
+
+//api for getting specidif product
+BuyerRoute.get('/fetch-product/:productID', async (req, res) => {
+  const productData = await ProductModel.findOne({
+    _id: req.params.productID
+  })
+  if (productData) {
+    res.json({
+      message: "OK",
+      productData: productData
     })
   }
 
-  else{
+  else {
     res.json({
-      message : "no data found"
+      message: "no data found"
     })
   }
 })

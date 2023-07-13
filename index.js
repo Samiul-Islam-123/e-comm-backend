@@ -20,10 +20,10 @@ dotenv.config();
 app.use(cors());
 
 //test api route
-app.get('/', (req,res)=>{
+app.get('/', (req, res) => {
     console.log(req.body)
     res.json({
-        message : "OK"
+        message: "OK"
     })
 })
 
@@ -42,7 +42,7 @@ app.use('/app/buyer', BuyerRoute)
 app.use('/app/seller', SellerRoute)
 
 const PORT = process.env.PORT || 5500;
-app.listen(PORT,async()=>{
+app.listen(PORT, async () => {
     console.log("Server is starting...");
     //connecting with DataBase
     await Connection();

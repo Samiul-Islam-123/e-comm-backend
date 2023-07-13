@@ -1,7 +1,7 @@
 //this file provide connection with database
 
 const mongoose = require("mongoose");
-const DataBaseURL = "mongodb+srv://Samiul:HoTDfkSqkINbHzpp@saasify-data-cluster.h4t97uw.mongodb.net/SaasifyData?retryWrites=true&w=majority";
+const DataBaseURL = "mongodb+srv://Samiul:ei9GBSDQmYRcxKDJ@datacluster.wgwbzka.mongodb.net/?retryWrites=true&w=majority";
 const ConnectToDataBase = async () => {
   console.log("Establishing Connection with DataBase...");
   try {
