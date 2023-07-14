@@ -19,7 +19,7 @@ SellerRoute.post("/create-seller", upload.single("file"), async (req, res) => {
       });
     }
 
-    const SellerProfilePicURL = `http://localhost:5500/uploads/${file.filename}`;
+    const SellerProfilePicURL = `http://process.env.API:5500/uploads/${file.filename}`;
 
 
     const decodedToken = await DecodeToken(req.body.token);
@@ -86,7 +86,7 @@ SellerRoute.post("/update-seller", upload.single("file"), async (req, res) => {
     });
   }
 
-  const SellerProfilePicURL = `http://localhost:5500/uploads/${file.filename}`;
+  const SellerProfilePicURL = `http://process.env.API:5500/uploads/${file.filename}`;
 
 
   const decodedToken = await DecodeToken(req.body.token);
@@ -146,7 +146,7 @@ SellerRoute.post(
       });
     }
 
-    const ProductPicURL = `http://localhost:5500/uploads/${file.filename}`;
+    const ProductPicURL = `http://process.env.API:5500/uploads/${file.filename}`;
 
 
     try {
@@ -189,7 +189,7 @@ SellerRoute.post('/update-product', upload.single('product-image'), async (req, 
     });
   }
 
-  const ProductImageURL = `http://localhost:5500/uploads/${file.filename}`;
+  const ProductImageURL = `http://process.env.API:5500/uploads/${file.filename}`;
 
   try {
     const ProductUpdate = {
