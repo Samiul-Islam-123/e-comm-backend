@@ -5,18 +5,28 @@ const DecodeToken = require("../../Utils/TokenDecoder");
 const OrderModel = require("../../DataBase/Models/OrderModel");
 const ProductModel = require("../../DataBase/Models/ProductModel");
 const sendEmail = require("../../Utils/EmailVerification");
+const CartModel = require("../../DataBase/Models/CartModel");
+const mongoose = require('mongoose')
 
-BuyerRoute.post("/create-buyer", async (req, res) => {
-
-
+BuyerRoute.post("/create-buyer", upload.single('file'), async (req, res) => {
 
   try {
+
+    const file = req.file;
+    if (!file) {
+      res.json({
+        message: "file not found"
+      });
+    }
+    const BuyerProfilePicURL = `${process.env.API}/uploads/${file.filename}`;
     const decodedToken = await DecodeToken(req.body.token);
     const CurrentBuyerData = new BuyerModel({
       BuyerID: decodedToken.id,
       BuyerName: decodedToken.username,
-      BuyerEmail: decodedToken.email
+      BuyerEmail: decodedToken.email,
+      BuyerProfilePicURL: BuyerProfilePicURL
     });
+
 
     //saving it
     await CurrentBuyerData.save();
@@ -150,6 +160,118 @@ BuyerRoute.get('/fetch-product/:productID', async (req, res) => {
     })
   }
 })
+
+//api for creating the Cart
+BuyerRoute.post('/create-cart', async (req, res) => {
+  try {
+    //get buyer ID
+    const token = req.body.token;
+    const decodedToken = await DecodeToken(token);
+    const BuyerData = await BuyerModel.findOne({
+      BuyerID: decodedToken.id
+    });
+
+
+    //creating current Cartdata
+    const CurrentData = new CartModel({
+      CartOwner: BuyerData._id,
+      Active: true,
+    });
+
+    //save it
+    await CurrentData.save();
+    res.json({
+      message: "OK"
+    })
+  }
+  catch (error) {
+    console.log(error);
+    res.json({
+      message: "ERROR",
+      error: error
+    })
+  }
+})
+
+//api for add to cart
+BuyerRoute.post('/add-to-cart', async (req, res) => {
+  try {
+    //get buyer ID
+    const token = req.body.token;
+    const decodedToken = await DecodeToken(token);
+    const BuyerData = await BuyerModel.findOne({
+      BuyerID: decodedToken.id
+    });
+
+    const Cart = await CartModel.findOne({
+      CartOwner: BuyerData._id
+    })
+    Cart.CartProducts.push({
+      products: req.body.productID
+    })
+
+    await Cart.save();
+
+    res.json({
+      message: "OK"
+    })
+  }
+  catch (error) {
+    console.error(error);
+    res.json({
+      error: error,
+      message: "Error"
+    })
+  }
+})
+
+//api for fetching CartProducts
+BuyerRoute.get('/fetch-cart-products/:token', async (req, res) => {
+  try {
+    //get buyer ID
+    const token = req.params.token;
+    const decodedToken = await DecodeToken(token);
+    const BuyerData = await BuyerModel.findOne({
+      BuyerID: decodedToken.id
+    });
+
+
+    if (!BuyerData) {
+      res.json({
+        message: "Buyer not found"
+      })
+    }
+
+    else {
+      const Cart = await CartModel.findOne({
+        CartOwner: BuyerData._id
+      })
+
+      if (!Cart)
+        res.json({
+          message: "NO"
+        })
+
+      else
+        res.json({
+          message: "OK",
+          Cart: Cart
+        })
+      
+    }
+
+  }
+  catch (error) {
+    console.error(error);
+    res.json({
+      message: "ERROR",
+      error: error
+    })
+  }
+})
+
+
+
 
 //api for placing order
 BuyerRoute.post("/place-order", async (req, res) => {

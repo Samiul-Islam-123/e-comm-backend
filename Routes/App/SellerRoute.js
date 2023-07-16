@@ -21,7 +21,6 @@ SellerRoute.post("/create-seller", upload.single("file"), async (req, res) => {
     }
 
     const SellerProfilePicURL = `${process.env.API}/uploads/${file.filename}`;
-    console.log(SellerProfilePicURL);
 
     const decodedToken = await DecodeToken(req.body.token);
     const CurrentSellerData = new SellerModel({
