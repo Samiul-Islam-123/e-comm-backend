@@ -4,9 +4,20 @@ const SellerModel = require("../../DataBase/Models/SellerModel");
 const DecodeToken = require("../../Utils/TokenDecoder");
 const ProductModel = require("../../DataBase/Models/ProductModel");
 const OrderModel = require('../../DataBase/Models/OrderModel')
-const sendEmail = require('../../Utils/EmailVerification')
+const sendEmail = require('../../Utils/EmailVerification');
+const multer = require('multer');
 
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'DeliveredContent/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
 
+// Create Multer upload middleware
+const OrderUploader = multer({ storage });
 
 //create
 SellerRoute.post("/create-seller", upload.single("file"), async (req, res) => {
@@ -49,6 +60,61 @@ SellerRoute.post("/create-seller", upload.single("file"), async (req, res) => {
     });
   }
 });
+
+//api for fetching all orders
+SellerRoute.get('/fetch-order/:token', async (req, res) => {
+  try {
+    const decodedToken = await DecodeToken(req.params.token);
+    const SellerData = await SellerModel.findOne({
+      SellerID: decodedToken.id
+    });
+    const sourceID = SellerData._id
+    const Orders = await OrderModel.find({
+      Source: sourceID
+    }).populate('Destination Product Source');
+    if (!Orders) {
+      res.json({
+        message: "No Order found"
+      })
+    }
+
+    else {
+      res.json({
+        message: "OK",
+        Orders: Orders
+      })
+    }
+
+  }
+  catch (error) {
+    console.log(error);
+    res.json({
+      message: "ERROR",
+      error: error
+    })
+  }
+})
+
+SellerRoute.get('/fetch-order-details/:orderID', async (req, res) => {
+  try {
+    const OrderDetails = await OrderModel.findOne({
+      _id: req.params.orderID
+    }).populate('Destination Product Source')
+
+    res.json({
+      message: "OK",
+      OrderDetails: OrderDetails
+    })
+
+  }
+  catch (error) {
+    console.log(error);
+    res.json({
+      message: "ERROR",
+      error: error
+    })
+  }
+})
 
 //read
 SellerRoute.get("/fetch-seller/:token", async (req, res) => {
@@ -295,7 +361,7 @@ SellerRoute.get('/fetch-product-Details/:productID', async (req, res) => {
   }
 })
 
-SellerRoute.post('/ship-product', async (req, res) => {
+SellerRoute.post('/confirm-order', async (req, res) => {
   try {
     const OrderID = req.body.orderID;
 
@@ -307,8 +373,8 @@ SellerRoute.post('/ship-product', async (req, res) => {
 
     //sending email to destination's email
     console.log('sending shipping email')
-    await sendEmail(DestinationEmail, "Your product has been shipped by its Owner",
-      `Hellow ${OrderObject.Destination.BuyerName}, Your product has been shipped successfully by ${OrderObject.Source.SellerName}.
+    await sendEmail(DestinationEmail, "Your product has been Confirmed by its Owner",
+      `Hellow ${OrderObject.Destination.BuyerName}, Your product has been Confirmed successfully by ${OrderObject.Source.SellerName}.
       Total Price :$ ${OrderObject.Product.Price},
       ProductDetails : 
       ProductName : ${OrderObject.Product.ProductName}
@@ -320,7 +386,7 @@ SellerRoute.post('/ship-product', async (req, res) => {
       _id: OrderID
     },
       {
-        Status: "Shipped"
+        Status: "Confirmed"
       }
     )
 
@@ -334,6 +400,71 @@ SellerRoute.post('/ship-product', async (req, res) => {
       error: error
     })
   }
+})
+
+//api to fetch number of orders and cart products
+SellerRoute.get('/fetch-shopping-info/:token', async (req, res) => {
+  const decodedToken = await DecodeToken(req.params.token);
+  //getting number of orders
+  const SellerObject = await SellerModel.findOne({
+    SellerID: decodedToken.id
+  });
+
+  const Orders = await OrderModel.find({
+    Source: SellerObject._id,
+    Status: { $in: ["Placed", "Confirmed"] }
+  });
+
+
+  res.json({
+    message: "OK",
+    Orders: Orders.length
+  })
+})
+
+//api for delivering order
+SellerRoute.post('/deliver-order', OrderUploader.array('files'), async (req, res) => {
+
+  try {
+    if (!req.files) {
+      res.json({
+        message: "NO files found from client"
+      })
+    }
+
+    const decodedToken = await DecodeToken(req.body.token);
+    const SellerData = await SellerModel.findOne({
+      SellerID: decodedToken.id
+    })
+    const SourceID = SellerData._id;
+    const CurrentOrder = await OrderModel.findOne({
+      Source: SourceID
+    });
+
+    const files = req.files
+    files.map((item) => {
+      const fileLink = `${process.env.API}/DeliveredContent/${item.filename}`
+      CurrentOrder.Content.push({
+        ContentURL: fileLink
+      })
+
+    })
+    console.log('I have came upto this')
+
+    CurrentOrder.Status = "Delivered"
+    await CurrentOrder.save();
+    res.json({
+      message: "OK"
+    })
+  }
+  catch (error) {
+    console.error(error);
+    res.json({
+      message: "ERROR",
+      error: error
+    })
+  }
+
 })
 
 module.exports = SellerRoute;

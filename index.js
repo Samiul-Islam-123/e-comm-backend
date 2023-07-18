@@ -4,6 +4,8 @@ const dotenv = require('dotenv');
 const cors = require('cors')
 const path = require('path')
 const uploadDestination = path.join(__dirname, "uploads");
+const DeliveredContentDestination = path.join(__dirname, "DeliveredContent");
+
 
 
 const Connection = require('./DataBase/Connection');
@@ -15,6 +17,8 @@ const Verification = require("./Routes/Authentication/Verification");
 const SellerRoute = require('./Routes/App/SellerRoute');
 
 app.use("/uploads", express.static(uploadDestination));
+app.use("/DeliveredContent", express.static(DeliveredContentDestination));
+
 app.use(express.json())
 dotenv.config();
 app.use(cors());

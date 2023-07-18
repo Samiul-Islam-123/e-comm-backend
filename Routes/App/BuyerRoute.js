@@ -19,6 +19,7 @@ BuyerRoute.post("/create-buyer", upload.single('file'), async (req, res) => {
       });
     }
     const BuyerProfilePicURL = `${process.env.API}/uploads/${file.filename}`;
+    console.log(BuyerProfilePicURL)
     const decodedToken = await DecodeToken(req.body.token);
     const CurrentBuyerData = new BuyerModel({
       BuyerID: decodedToken.id,
@@ -245,7 +246,7 @@ BuyerRoute.get('/fetch-cart-products/:token', async (req, res) => {
     else {
       const Cart = await CartModel.findOne({
         CartOwner: BuyerData._id
-      })
+      }).populate('CartProducts.products')
 
       if (!Cart)
         res.json({
@@ -257,7 +258,7 @@ BuyerRoute.get('/fetch-cart-products/:token', async (req, res) => {
           message: "OK",
           Cart: Cart
         })
-      
+
     }
 
   }
@@ -271,17 +272,59 @@ BuyerRoute.get('/fetch-cart-products/:token', async (req, res) => {
 })
 
 
+BuyerRoute.post('/delete-cart-product', async (req, res) => {
+  try {
+    const { cartId, productId } = req.body;
+
+    // Find the cart document by ID
+    const cart = await CartModel.findById(cartId);
+
+    if (!cart) {
+      return res.status(404).json({ error: 'Cart not found' });
+    }
+
+    // Find the index of the product to be removed
+    const productIndex = cart.CartProducts.findIndex(item => item.products.toString() === productId);
+
+
+
+    // Use pop() to remove the product from the CartProducts array at the specified index
+    cart.CartProducts.splice(productIndex, 1);
+
+    await cart.save();
+
+    return res.status(200).json({ message: 'OK', cart });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+//api for emptying cart
+BuyerRoute.post('/empty-cart', async (req, res) => {
+  try {
+    await CartModel.findByIdAndRemove(req.body.cartID);
+    res.json({
+      message: "OK"
+    })
+  }
+  catch (error) {
+    console.error(error);
+    res.json({
+      message: "error",
+      error: error
+    })
+  }
+})
 
 
 //api for placing order
 BuyerRoute.post("/place-order", async (req, res) => {
   try {
     const decodedToken = await DecodeToken(req.body.token);
-    console.log(decodedToken)
     const DestinationObject = await BuyerModel.findOne({
       BuyerID: decodedToken.id,
     });
-    console.log(DestinationObject)
 
     const DestinationID = DestinationObject._id;
 
@@ -289,9 +332,10 @@ BuyerRoute.post("/place-order", async (req, res) => {
       _id: req.body.ProductID,
     }).populate("Owner");
 
+
     const sellerEmail = ProductObject.Owner.SellerEmail;
     //sending email to destination's email
-    console.log("sending shipping email");
+    console.log("sending order placed email");
     await sendEmail(
       sellerEmail,
       "You have a new Order",
@@ -316,7 +360,6 @@ BuyerRoute.post("/place-order", async (req, res) => {
       Destination: DestinationID,
       Status: "Placed",
     });
-
     await CurrentOrder.save();
     res.json({
       message: "OK",
@@ -350,26 +393,34 @@ BuyerRoute.post("/cancel-order", async (req, res) => {
 });
 
 //api for fetching order
-BuyerRoute.get("/fetch-order-buyer/:orderID", async (req, res) => {
+BuyerRoute.get("/fetch-order-buyer/:token", async (req, res) => {
   try {
-    const decodedToken = await DecodeToken(req.body.token);
+    const decodedToken = await DecodeToken(req.params.token);
     const DestinationObject = await BuyerModel.findOne({
       BuyerID: decodedToken.id,
     });
+    if (!DestinationObject) {
+      res.json({
+        message: "Buyer account not created"
+      })
+    }
 
-    const DestinationID = DestinationObject._id;
-    const OrderData = await OrderModel.findOne({
-      Destination: DestinationID,
-    }).populate("Product Source Destination");
-    if (!OrderData) {
-      res.json({
-        message: "No Orders found",
-      });
-    } else {
-      res.json({
-        messaeg: "OK",
-        OrderData: OrderData,
-      });
+    else {
+      const DestinationID = DestinationObject._id;
+      const OrderData = await OrderModel.find({
+        Destination: DestinationID,
+      }).populate("Product Source Destination");
+      if (!OrderData) {
+        res.json({
+          message: "No Orders found",
+        });
+      } else {
+        res.json({
+          message: "OK",
+          OrderData: OrderData,
+        });
+      }
+
     }
   } catch (error) {
     console.error(error);
@@ -379,6 +430,56 @@ BuyerRoute.get("/fetch-order-buyer/:orderID", async (req, res) => {
     });
   }
 });
+
+//api to fetch number of orders and cart products
+BuyerRoute.get('/fetch-shopping-info/:token', async (req, res) => {
+  const decodedToken = await DecodeToken(req.params.token);
+  //getting number of orders
+  const BuyerObject = await BuyerModel.findOne({
+    BuyerID: decodedToken.id
+  });
+
+  const Orders = await OrderModel.find({
+    Destination: BuyerObject._id,
+    Status: { $in: ["Placed", "Confirmed"] }
+  });
+
+
+  const Cart = await CartModel.find({
+    CartOwner: BuyerObject._id
+  })
+
+  res.json({
+    message: "OK",
+    Orders: Orders.length,
+    CartProducts: Cart.length
+  })
+})
+
+//api to fetch buyer order details
+BuyerRoute.get('/fetch-order-details/:orderID', async (req, res) => {
+
+  try {
+
+    const OrderDetails = await OrderModel.findOne({
+      _id: req.params.orderID
+    }).populate('Destination Source Product')
+    if (OrderDetails) {
+      res.json({
+        message: "OK",
+        OrderDetails: OrderDetails
+      })
+    }
+  }
+
+  catch (error) {
+    console.log(error);
+    res.json({
+      message: "ERROR",
+      error: error
+    })
+  }
+})
 
 //api to receive order
 BuyerRoute.post("/receive-order", async (req, res) => {
